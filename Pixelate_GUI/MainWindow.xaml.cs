@@ -1,21 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using Microsoft.Win32;
+using Pixelate_Core;
+using System;
 using System.Collections.ObjectModel;
+using System.Drawing;
 using System.Linq;
-using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using Microsoft.Win32;
-using System.Drawing;
-using Pixelate_Core;
 
 namespace Pixelation_
 {
@@ -26,12 +17,16 @@ namespace Pixelation_
     {
         Bitmap originalBitmap;
         Bitmap pixelatedBitmap;
-        public ObservableCollection<string> Colors = new ObservableCollection<string>();
+        public ObservableCollection<string> Colors = new ObservableCollection<string>();        
         public MainWindow()
         {
             InitializeComponent();
-            
-        }
+            ScaleModes.ItemsSource = Enum.GetValues(typeof(Pixelator.ScaleMode));
+            ScaleModes.SelectedValue = Pixelator.ScaleMode.NearestNeighbor;
+
+            ColorModes.ItemsSource = Enum.GetValues(typeof(Pixelator.ColorMode));
+            ColorModes.SelectedValue = Pixelator.ColorMode.Random;
+        }   
 
         private void Open_Image_Click(object sender, RoutedEventArgs e)
         {
@@ -78,39 +73,29 @@ namespace Pixelation_
                 return;
             }
 
-            if (!Int32.TryParse(Color.Text, out int colors))
+            if (!Int32.TryParse(Color.Text, out int colorsAmount))
             {
                 MessageBox.Show("Incorrent Colors Amount", "Error", MessageBoxButton.OK);
                 return;
             }
-            if (All_Mode.IsChecked.Value)
-            {
-                colors = -1;
-            }
-            else
-                colors += Colors.Count;
 
             if (pixelatedBitmap != null)
                 ImageHelper.DeleteObject(pixelatedBitmap.GetHbitmap());
-            
-            pixelatedBitmap = Pixelate_Core.Pixelator.Pixelate(ImageHelper.GetBitmap((BitmapSource)Source_Image.Source), Colors.Select(x => System.Drawing.ColorTranslator.FromHtml(x)), scaleFactor, colors, Random_Mode.IsChecked.Value);
 
+            pixelatedBitmap = Pixelate_Core.Pixelator.Pixelate(
+                ImageHelper.GetBitmap((BitmapSource)Source_Image.Source),
+                Colors.Select(x => System.Drawing.ColorTranslator.FromHtml(x)),
+                scaleFactor,
+                colorsAmount,
+                (Pixelator.ScaleMode)ScaleModes.SelectedItem, (Pixelator.ColorMode)ColorModes.SelectedItem);
+
+        
             Pixelated_Image.Source = ImageHelper.GetBitmapSource(pixelatedBitmap);
             Pixelated_Image.Source.Freeze();
             GC.Collect();
             GC.WaitForPendingFinalizers();
+            
         }
-
-        private void Random_Mode_Checked(object sender, RoutedEventArgs e)
-        {
-            Color.IsEnabled = true;
-        }
-
-        private void All_Mode_Checked(object sender, RoutedEventArgs e)
-        {
-            Color.IsEnabled = false;
-        }
-
         private void Button_Click(object sender, RoutedEventArgs e)
         {
             ColorConfiguration colorConfiguration = new ColorConfiguration();
@@ -123,6 +108,14 @@ namespace Pixelation_
         private void Window_Initialized(object sender, EventArgs e)
         {
             originalBitmap = ImageHelper.GetBitmap((BitmapSource)Source_Image.Source);
+        }
+
+        private void ColorModes_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+        {
+            if (ColorModes.SelectedValue != null && (Pixelator.ColorMode)ColorModes.SelectedValue == Pixelator.ColorMode.AllColors)
+                Color.IsEnabled = false;
+            else
+                Color.IsEnabled = true;
         }
     }
 }
