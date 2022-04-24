@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media.Imaging;
 
 namespace Pixelation_
@@ -17,7 +18,8 @@ namespace Pixelation_
     {
         Bitmap originalBitmap;
         Bitmap pixelatedBitmap;
-        public ObservableCollection<string> Colors = new ObservableCollection<string>();        
+        public ObservableCollection<string> Colors = new ObservableCollection<string>();
+        Task<Bitmap> currentTask = null;
         public MainWindow()
         {
             InitializeComponent();
@@ -65,6 +67,7 @@ namespace Pixelation_
             }
         }
 
+        uint click_count = 0;
         private void Pixelate_Click(object sender, RoutedEventArgs e)
         {
             if (!Int32.TryParse(Scale_Factor.Text, out int scaleFactor))
@@ -82,18 +85,40 @@ namespace Pixelation_
             if (pixelatedBitmap != null)
                 ImageHelper.DeleteObject(pixelatedBitmap.GetHbitmap());
 
-            pixelatedBitmap = Pixelate_Core.Pixelator.Pixelate(
-                ImageHelper.GetBitmap((BitmapSource)Source_Image.Source),
-                Colors.Select(x => System.Drawing.ColorTranslator.FromHtml(x)),
-                scaleFactor,
-                colorsAmount,
-                (Pixelator.ScaleMode)ScaleModes.SelectedItem, (Pixelator.ColorMode)ColorModes.SelectedItem);
+            //pixelatedBitmap = Pixelate_Core.Pixelator.Pixelate(
+            //    ImageHelper.GetBitmap((BitmapSource)Source_Image.Source),
+            //    Colors.Select(x => System.Drawing.ColorTranslator.FromHtml(x)),
+            //    scaleFactor,
+            //    colorsAmount,
+            //    (Pixelator.ScaleMode)ScaleModes.SelectedItem, (Pixelator.ColorMode)ColorModes.SelectedItem);
 
-        
-            Pixelated_Image.Source = ImageHelper.GetBitmapSource(pixelatedBitmap);
-            Pixelated_Image.Source.Freeze();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
+            if (currentTask != null)
+            {
+                if (click_count++ % 5 == 0)
+                    MessageBox.Show("Please be patient");
+                return;
+            }
+            Mouse.OverrideCursor = System.Windows.Input.Cursors.Wait;
+            currentTask = Pixelate_Core.Pixelator.PixelateAsync(
+            ImageHelper.GetBitmap((BitmapSource)Source_Image.Source),
+            Colors.Select(x => System.Drawing.ColorTranslator.FromHtml(x)),
+            scaleFactor,
+            colorsAmount,
+            (Pixelator.ScaleMode)ScaleModes.SelectedItem, (Pixelator.ColorMode)ColorModes.SelectedItem);
+            currentTask.ContinueWith(
+                (Task<Bitmap> result) => {
+                    pixelatedBitmap = result.Result;
+                    Pixelated_Image.Source = ImageHelper.GetBitmapSource(pixelatedBitmap);
+                    Pixelated_Image.Source.Freeze();
+                    Mouse.OverrideCursor = System.Windows.Input.Cursors.Arrow;
+                    currentTask = null;
+                    click_count = 0;
+                }, TaskScheduler.FromCurrentSynchronizationContext());
+
+            //Pixelated_Image.Source = ImageHelper.GetBitmapSource(pixelatedBitmap);
+            //Pixelated_Image.Source.Freeze();
+            //GC.Collect();
+            //GC.WaitForPendingFinalizers();
             
         }
         private void Button_Click(object sender, RoutedEventArgs e)

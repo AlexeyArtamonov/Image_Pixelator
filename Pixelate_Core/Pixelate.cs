@@ -44,6 +44,12 @@ namespace Pixelate_Core
             }
             return bitmap;
         }
+        public static async Task<Bitmap> PixelateAsync(Bitmap bitmap, IEnumerable<Color> Pallete, int blockSize, int colorsAmount, ScaleMode scaleMode, ColorMode colorMode)
+        {
+            var task = Task.Run(() => Pixelate(bitmap, Pallete, blockSize, colorsAmount, scaleMode, colorMode));
+            await task;
+            return task.Result;
+        }
 
         static Bitmap bmp = new Bitmap(1, 1);
         static Color AverageColor(Bitmap bitmap, int x, int y, int size, ScaleMode scaleMode)
